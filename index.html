@@ -90,6 +90,13 @@ dialog::backdrop { background: rgba(27, 23, 18, .45); }
 .chart text { font: 11px "Libre Franklin"; fill: var(--mute); font-variant-numeric: tabular-nums; }
 .tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 4px; padding: 6px 10px; font-size: 12px; white-space: nowrap; transform: translateX(-50%); }
 .tip b { display: block; font: 700 16px "Newsreader", serif; }
+.ranges { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; margin: 4px 0 8px; }
+.ranges button { background: none; border: 0; border-left: 1px solid var(--ink); font: 600 12px "Libre Franklin"; padding: 0 14px; min-height: 36px; min-width: 48px; cursor: pointer; color: var(--ink); }
+.ranges button:first-child { border-left: 0; }
+.ranges button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.panel { border-bottom: 1px solid var(--rule); padding-bottom: 16px; margin-bottom: 24px; }
+.panel .dlg-hero { margin-top: 0; }
+.badge { display: inline-block; font: 600 11px "Libre Franklin"; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--ink); border-radius: 3px; padding: 2px 6px; margin-top: 4px; }
 details { margin-top: 16px; font-size: 13px; }
 details table td { padding: 4px 6px; }
 .empty { font: italic 400 18px "Newsreader", serif; color: var(--mute); padding: 16px 0; }
@@ -114,10 +121,11 @@ footer p { flex: 1 1 300px; margin: 0; }
   <nav role="tablist">
     <button role="tab" data-tab="binder" aria-selected="true">Binder</button>
     <button role="tab" data-tab="sealed" aria-selected="false">Sealed</button>
+    <button role="tab" data-tab="targets" aria-selected="false">Targets</button>
     <button role="tab" data-tab="calendar" aria-selected="false">Release calendar</button>
   </nav>
 
-  <section id="binder">
+  <section id="p-binder">
     <h2>The Binder</h2>
     <p class="dek">Singles from <span id="card-sets">…</span> at TCGplayer market price, converted to AUD. Tap “Price history” on any card to see its chart.</p>
     <form data-kind="card">
@@ -128,9 +136,15 @@ footer p { flex: 1 1 300px; margin: 0; }
     <div class="binder" id="card-grid"></div>
   </section>
 
-  <section id="sealed" hidden>
+  <section id="p-sealed" hidden>
     <h2>Sealed</h2>
     <p class="dek">Market price against what you paid. Enter your MSRP on each line.</p>
+    <div class="panel" id="sealed-chart" hidden>
+      <div class="dlg-hero"><b class="num" id="sc-now"></b><span class="num" id="sc-change"></span></div>
+      <div id="sc-ranges"></div>
+      <div class="chart" id="sc-box"><svg viewBox="0 0 640 260" tabindex="0" role="img" aria-label="Total sealed value over time"></svg><div class="tip" hidden></div></div>
+      <p class="sub" id="sc-note"></p>
+    </div>
     <form data-kind="sealed">
       <input list="sealed-list" placeholder="Search packs, boxes, bundles, ETBs, tins…" autocomplete="off" aria-label="Search sealed products" required>
       <datalist id="sealed-list"></datalist>
@@ -139,7 +153,17 @@ footer p { flex: 1 1 300px; margin: 0; }
     <div id="sealed-table"></div>
   </section>
 
-  <section id="calendar" hidden>
+  <section id="p-targets" hidden>
+    <h2>Targets</h2>
+    <p class="dek">Products you want to buy. Enter the retail price (MSRP) to see what you'd make if you got one at retail. Targets don't count towards your collection value.</p>
+    <form data-kind="target">
+      <input list="sealed-list" placeholder="Search upcoming or current products, e.g. Delta Reign Elite Trainer Box…" autocomplete="off" aria-label="Search products to target" required>
+      <button class="btn">Add target</button>
+    </form>
+    <div id="target-table"></div>
+  </section>
+
+  <section id="p-calendar" hidden>
     <h2>Release calendar</h2>
     <p class="dek">Australian dates, via <a href="https://cardtracker.au/releases" target="_blank" rel="noopener">cardtracker.au</a>. Last changed <span id="rel-updated"></span>.</p>
     <div class="cal" id="rel-list"></div>
@@ -148,7 +172,8 @@ footer p { flex: 1 1 300px; margin: 0; }
   <dialog id="chart-dialog" aria-labelledby="dlg-title">
     <div class="dlg-head"><div><h3 id="dlg-title"></h3><div class="sub" id="dlg-sub"></div></div><button class="btn line" id="dlg-close">Close</button></div>
     <div class="dlg-hero"><b class="num" id="dlg-now"></b><span class="num" id="dlg-change"></span></div>
-    <div class="chart"><svg id="dlg-svg" viewBox="0 0 640 260" tabindex="0" role="img"></svg><div class="tip" id="dlg-tip" hidden></div></div>
+    <div id="dlg-ranges"></div>
+    <div class="chart" id="dlg-chart"><svg id="dlg-svg" viewBox="0 0 640 260" tabindex="0" role="img"></svg><div class="tip" hidden></div></div>
     <p class="sub" id="dlg-note"></p>
     <details><summary>Show as a table</summary><table id="dlg-table"></table></details>
   </dialog>
@@ -174,7 +199,7 @@ let mine = [];
 try { mine = JSON.parse(localStorage.getItem(KEY)) || []; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch {} render(); };
 
-const product = it => products[`${it.kind}|${it.id}`];
+const product = it => products[`${it.kind === "target" ? "sealed" : it.kind}|${it.id}`];
 function eachAud(it) {
   const p = product(it);
   const usd = p && (p.prices[it.variant] ?? Object.values(p.prices)[0]);
@@ -207,55 +232,95 @@ function sparkline(it, i) {
 
 const nice = (span) => { const m = 10 ** Math.floor(Math.log10(span)), r = span / m; return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10) * m; };
 
-function openChart(it) {
-  const p = product(it), pts = series(it), dlg = $("#chart-dialog"), svg = $("#dlg-svg"), tip = $("#dlg-tip");
-  $("#dlg-title").textContent = it.kind === "card" ? cardName(p) : p.name;
-  $("#dlg-sub").textContent = it.kind === "card" ? `#${p.number} · ${p.rarity} · ${it.variant || ""} · ${setName(p)}` : p.set;
-  $("#dlg-now").textContent = aud(eachAud(it));
-  const first = pts[0], last = pts.at(-1);
-  $("#dlg-change").innerHTML = pts.length > 1 ? `<span class="${tone(last.v - first.v)}">${signed(last.v - first.v)} (${pct(last.v, first.v)})</span> <span class="sub">since ${day(first.d)}</span>` : "";
-  $("#dlg-note").textContent = pts.length > 1
-    ? "Daily TCGplayer market price, per item, in AUD at each day's exchange rate."
-    : pts.length ? `History started on ${day(first.d)}. A new point is added each day, so the line fills in over time.` : "No price history for this item yet.";
-  $("#dlg-table").innerHTML = "<tr><th>Date</th><th class='r'>Price (AUD)</th></tr>" + pts.slice().reverse().map(x => `<tr><td>${day(x.d)}</td><td class="r num">${aud(x.v)}</td></tr>`).join("");
-  svg.setAttribute("aria-label", `Price history for ${$("#dlg-title").textContent}`);
+// Chart range shared by every chart: "7", "30", "90" (days) or "all".
+let range = "all";
+try { range = localStorage.getItem("pokemon-tracker-range") || "all"; } catch {}
+const inRange = pts => {
+  if (range === "all" || !pts.length) return pts;
+  const cut = new Date(pts.at(-1).d + "T00:00:00"); cut.setDate(cut.getDate() - (+range - 1));
+  return pts.filter(p => new Date(p.d + "T00:00:00") >= cut);
+};
+const rangeButtons = () => `<div class="ranges" role="group" aria-label="Chart range">${[["7", "7D"], ["30", "30D"], ["90", "90D"], ["all", "All"]]
+  .map(([v, t]) => `<button data-range="${v}" aria-pressed="${range === v}">${t}</button>`).join("")}</div>`;
+const changeLine = pts => pts.length > 1
+  ? `<span class="${tone(pts.at(-1).v - pts[0].v)}">${signed(pts.at(-1).v - pts[0].v)} (${pct(pts.at(-1).v, pts[0].v)})</span> <span class="sub">since ${day(pts[0].d)}</span>` : "";
 
-  // Layout: 640×260 viewBox, y labels on the left.
+// Line chart into a .chart box (svg + .tip). `ref` = optional dashed reference line {v, label}.
+function drawChart(box, pts, ref) {
+  const svg = box.querySelector("svg"), tip = box.querySelector(".tip");
   const L = 64, R = 624, T = 16, B = 228;
-  const vs = pts.map(x => x.v), lo0 = Math.min(...vs), hi0 = Math.max(...vs);
+  const vs = pts.map(x => x.v).concat(ref ? [ref.v] : []), lo0 = Math.min(...vs), hi0 = Math.max(...vs);
   const step = nice(((hi0 - lo0) || Math.max(hi0 * 0.2, 1)) / 3);
   const lo = Math.max(0, Math.floor(lo0 / step) * step - (hi0 === lo0 ? step : 0)), hi = Math.ceil(hi0 / step) * step + (hi0 === lo0 ? step : 0);
   const x = k => pts.length > 1 ? L + k / (pts.length - 1) * (R - L) : (L + R) / 2;
   const y = v => B - (v - lo) / ((hi - lo) || 1) * (B - T);
   let g = "";
-  for (let v = lo; v <= hi + step / 2; v += step)
+  if (vs.length) for (let v = lo; v <= hi + step / 2; v += step)
     g += `<line x1="${L}" x2="${R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${aud(v).replace(/\.00$/, "")}</text>`;
   const ticks = pts.length > 2 ? [0, Math.floor((pts.length - 1) / 2), pts.length - 1] : pts.map((_, k) => k);
   g += ticks.map(k => `<text x="${x(k)}" y="${B + 22}" text-anchor="${pts.length > 1 && k === 0 ? "start" : pts.length > 1 && k === pts.length - 1 ? "end" : "middle"}">${day(pts[k].d).replace(/ \d{4}$/, "")}</text>`).join("");
+  if (ref) g += `<line x1="${L}" x2="${R}" y1="${y(ref.v)}" y2="${y(ref.v)}" stroke="var(--mute)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${R}" y="${y(ref.v) - 6}" text-anchor="end" style="fill:var(--ink)">${esc(ref.label)}</text>`;
   if (pts.length > 1) g += `<polyline points="${pts.map((p, k) => `${x(k)},${y(p.v)}`).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>`;
-  if (pts.length) g += `<circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>`;
-  g += `<line id="xh" y1="${T}" y2="${B}" stroke="var(--mute)" visibility="hidden"/><circle id="xd" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2" visibility="hidden"/>`;
+  if (pts.length) g += `<circle cx="${x(pts.length - 1)}" cy="${y(pts.at(-1).v)}" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>`;
+  g += `<line class="xh" y1="${T}" y2="${B}" stroke="var(--mute)" visibility="hidden"/><circle class="xd" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2" visibility="hidden"/>`;
   svg.innerHTML = g;
 
-  // Crosshair: snaps to the nearest day; arrow keys do the same from the keyboard.
+  // Crosshair snaps to the nearest day; arrow keys do the same from the keyboard.
   let at = pts.length - 1;
   const show = k => {
     if (!pts.length) return;
     at = Math.max(0, Math.min(pts.length - 1, k));
     const px = x(at), py = y(pts[at].v);
-    svg.querySelector("#xh").setAttribute("x1", px); svg.querySelector("#xh").setAttribute("x2", px);
-    svg.querySelector("#xd").setAttribute("cx", px); svg.querySelector("#xd").setAttribute("cy", py);
-    svg.querySelectorAll("#xh,#xd").forEach(el => el.setAttribute("visibility", "visible"));
+    svg.querySelector(".xh").setAttribute("x1", px); svg.querySelector(".xh").setAttribute("x2", px);
+    svg.querySelector(".xd").setAttribute("cx", px); svg.querySelector(".xd").setAttribute("cy", py);
+    svg.querySelectorAll(".xh,.xd").forEach(el => el.setAttribute("visibility", "visible"));
     tip.innerHTML = `<b class="num">${aud(pts[at].v)}</b>${day(pts[at].d)}`;
-    tip.style.left = `${px / 640 * 100}%`; tip.hidden = false;
+    tip.style.left = `${Math.min(88, Math.max(12, px / 640 * 100))}%`; tip.hidden = false;
   };
-  const hide = () => { tip.hidden = true; svg.querySelectorAll("#xh,#xd").forEach(el => el.setAttribute("visibility", "hidden")); };
+  const hide = () => { tip.hidden = true; svg.querySelectorAll(".xh,.xd").forEach(el => el.setAttribute("visibility", "hidden")); };
   svg.onpointermove = e => { const r = svg.getBoundingClientRect(); show(Math.round(((e.clientX - r.left) / r.width * 640 - L) / ((R - L) || 1) * (pts.length - 1))); };
   svg.onpointerleave = svg.onblur = hide;
   svg.onfocus = () => show(at);
   svg.onkeydown = e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); show(at + (e.key === "ArrowLeft" ? -1 : 1)); } };
   hide();
-  dlg.showModal();
+}
+
+let chartItem = null; // item shown in the dialog, so range buttons can redraw it
+function openChart(it) {
+  chartItem = it;
+  const p = product(it), all = series(it), pts = inRange(all);
+  $("#dlg-title").textContent = it.kind === "card" ? cardName(p) : p.name;
+  $("#dlg-sub").textContent = it.kind === "card" ? `#${p.number} · ${p.rarity} · ${it.variant || ""} · ${setName(p)}` : p.set;
+  $("#dlg-now").textContent = aud(eachAud(it));
+  $("#dlg-change").innerHTML = changeLine(pts);
+  $("#dlg-ranges").innerHTML = rangeButtons();
+  $("#dlg-note").textContent = all.length > 1
+    ? "Daily TCGplayer market price, per item, in AUD at each day's exchange rate."
+    : all.length ? `History started on ${day(all[0].d)}. A new point is added each day, so the line fills in over time.` : "No price history for this item yet.";
+  $("#dlg-table").innerHTML = "<tr><th>Date</th><th class='r'>Price (AUD)</th></tr>" + pts.slice().reverse().map(x => `<tr><td>${day(x.d)}</td><td class="r num">${aud(x.v)}</td></tr>`).join("");
+  $("#dlg-svg").setAttribute("aria-label", `Price history for ${$("#dlg-title").textContent}`);
+  const ref = (it.kind === "sealed" || it.kind === "target") && it.msrp ? { v: it.msrp, label: `MSRP ${aud(it.msrp)}` } : null;
+  drawChart($("#dlg-chart"), pts, ref);
+  if (!$("#chart-dialog").open) $("#chart-dialog").showModal();
+}
+
+// Total value of the sealed you hold now, on each day we have prices for all of it.
+function sealedChart() {
+  const items = mine.filter(it => it.kind === "sealed").map(it => ({ it, s: Object.fromEntries(series(it).map(p => [p.d, p.v])) }))
+    .filter(x => Object.keys(x.s).length);
+  const box = $("#sealed-chart");
+  box.hidden = !items.length;
+  if (!items.length) return;
+  const dates = Object.keys(priceHistory).sort().filter(d => items.every(x => x.s[d] != null));
+  const all = dates.map(d => ({ d, v: Math.round(items.reduce((sum, x) => sum + x.s[d] * x.it.qty, 0) * 100) / 100 }));
+  const pts = inRange(all);
+  const sealed = mine.filter(it => it.kind === "sealed"), paid = sealed.every(it => it.msrp) ? sealed.reduce((s, it) => s + it.msrp * it.qty, 0) : null;
+  $("#sc-now").textContent = aud(all.at(-1)?.v);
+  $("#sc-change").innerHTML = changeLine(pts);
+  $("#sc-ranges").innerHTML = rangeButtons();
+  $("#sc-note").textContent = (all.length > 1 ? "Market value of the sealed product you hold now, day by day." : `History started on ${day(all[0].d)}. A new point is added each day.`)
+    + (paid == null ? " Enter an MSRP on every line to see what you paid on the chart." : "");
+  drawChart($("#sc-box"), pts, paid ? { v: paid, label: `Paid ${aud(paid)}` } : null);
 }
 
 // Search options. Labels carry number, rarity and set so e.g. the two Lugias can't be confused.
@@ -307,6 +372,23 @@ function sealedRow(it, i) {
     <td class="r num">${ret}</td></tr>`;
 }
 
+function targetRow(it, i) {
+  const p = product(it); if (!p) return "";
+  const each = eachAud(it), profit = each != null && it.msrp ? each - it.msrp : null;
+  const upcoming = p.release && p.release >= new Date().toISOString().slice(0, 10);
+  return `<tr>
+    <td class="hide"><img src="${esc(p.img)}" alt="" width="72" height="72" loading="lazy"></td>
+    <td><div class="nm"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a></div><div class="sub">${esc(p.set)}</div>
+      ${upcoming ? `<span class="badge">Releases ${day(p.release)} (US)</span>` : ""}
+      <div class="fields">
+        <label>MSRP (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" data-i="${i}" data-f="msrp"></label>
+        <button class="link" data-buy="${i}">I bought one</button>
+        <button class="link" data-del="${i}">Remove</button>
+      </div></td>
+    <td class="r"><div class="big num">${each == null ? "—" : aud(each)}</div>${upcoming && each != null ? `<div class="sub">pre-order price</div>` : ""}${sparkline(it, i)}</td>
+    <td class="r num">${profit != null ? `<span class="${tone(profit)}">${signed(profit)}<br>${pct(each, it.msrp)}</span>` : `<span class="sub">${each == null ? "No price yet" : "Add MSRP"}</span>`}</td></tr>`;
+}
+
 function render() {
   const cards = mine.map((it, i) => it.kind === "card" ? pocket(it, i) : "").join("");
   $("#card-grid").innerHTML = cards + `<button class="add" data-focus="card-search">+ Add a card</button>`;
@@ -321,12 +403,18 @@ function render() {
     ${cost ? `<tfoot><tr><td class="hide"></td><td>Paid ${aud(cost)}</td><td class="r num">${aud(worth)}</td><td class="r num ${tone(worth - cost)}">${pct(worth, cost)}</td></tr></tfoot>` : ""}
     </table>` : `<p class="empty">No sealed product yet. Search above to add your first.</p>`;
 
-  $("#total").textContent = aud(mine.reduce((s, it) => s + (eachAud(it) ?? 0) * it.qty, 0));
+  const targets = mine.map((it, i) => it.kind === "target" ? targetRow(it, i) : "").join("");
+  $("#target-table").innerHTML = targets ? `<table>
+    <thead><tr><th class="hide"></th><th>Product</th><th class="r">Market</th><th class="r">Profit at MSRP</th></tr></thead>
+    <tbody>${targets}</tbody></table>` : `<p class="empty">No targets yet. Add an upcoming ETB or Booster Bundle to see if it's worth hunting.</p>`;
+
+  sealedChart();
+  $("#total").textContent = aud(mine.reduce((s, it) => s + (it.kind === "target" ? 0 : (eachAud(it) ?? 0) * it.qty), 0));
 }
 
 document.querySelectorAll("form").forEach(f => f.addEventListener("submit", e => {
   e.preventDefault();
-  const input = f.querySelector("input"), pick = labels[input.value];
+  const input = f.querySelector("input"), found = labels[input.value], pick = found && { ...found, kind: f.dataset.kind };
   if (!pick) { input.setCustomValidity("Choose an item from the suggestions list"); input.reportValidity(); return; }
   const existing = mine.find(it => it.kind === pick.kind && it.id === pick.id && it.variant === pick.variant);
   if (existing) existing.qty++;
@@ -343,17 +431,28 @@ document.addEventListener("change", e => {
   save();
 });
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-del],[data-tab],[data-focus],[data-chart]");
+  const t = e.target.closest("[data-del],[data-tab],[data-focus],[data-chart],[data-range],[data-buy]");
   if (!t) return;
+  if (t.dataset.range) {
+    range = t.dataset.range;
+    try { localStorage.setItem("pokemon-tracker-range", range); } catch {}
+    sealedChart();
+    if ($("#chart-dialog").open) openChart(chartItem);
+  }
+  if (t.dataset.buy) { // move a target into Sealed, keeping its MSRP as the price paid
+    const it = mine[t.dataset.buy], have = mine.find(x => x.kind === "sealed" && x.id === it.id);
+    if (have) have.qty++; else mine.push({ ...it, kind: "sealed", qty: 1, addedAud: eachAud(it) });
+    mine.splice(t.dataset.buy, 1); save();
+  }
   if (t.dataset.chart) openChart(mine[t.dataset.chart]);
   if (t.dataset.del && confirm(`Remove ${product(mine[t.dataset.del])?.name ?? "this item"}?`)) { mine.splice(+t.dataset.del, 1); save(); }
   if (t.dataset.focus) $("#" + t.dataset.focus).focus();
   if (t.dataset.tab) { history.replaceState(null, "", "#" + t.dataset.tab); showTab(t.dataset.tab); }
 });
 function showTab(tab) {
-  if (!["binder", "sealed", "calendar"].includes(tab)) tab = "binder";
+  if (!["binder", "sealed", "targets", "calendar"].includes(tab)) tab = "binder";
   document.querySelectorAll("[role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  for (const s of ["binder", "sealed", "calendar"]) $("#" + s).hidden = s !== tab;
+  for (const s of ["binder", "sealed", "targets", "calendar"]) $("#p-" + s).hidden = s !== tab; // ids differ from the hash so the page doesn't jump
 }
 showTab(location.hash.slice(1));
 
@@ -367,7 +466,7 @@ $("#export").onclick = () => {
 $("#import").onchange = async e => {
   try {
     const d = JSON.parse(await e.target.files[0].text());
-    if (!Array.isArray(d) || !d.every(it => (it.kind === "card" || it.kind === "sealed") && it.id && it.qty > 0)) throw 0;
+    if (!Array.isArray(d) || !d.every(it => ["card", "sealed", "target"].includes(it.kind) && it.id && it.qty > 0)) throw 0;
     mine = d; save();
   } catch { alert("That file isn't a Price Guide backup."); }
   e.target.value = "";

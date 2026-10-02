@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-02 — v4: targets + chart ranges
+- [x] 7D / 30D / 90D / All range buttons on every chart (remembered, shared across charts)
+- [x] Targets tab: watchlist of products to buy (incl. presale, e.g. Delta Reign), MSRP → profit at MSRP, release badge, chart, "I bought one" moves it to Sealed
+- [x] Sealed tab: total sealed value chart with a dashed "Paid" line; MSRP line on sealed/target item charts
+- [x] Presale release dates captured from TCGplayer (`release` on sealed items)
+- [x] Fixed: tab links (#sealed) no longer scroll past the header
+
 ## 2026-10-02 — v3: price history + Pitch Black
 - [x] Pitch Black singles added (all 120 cards, with Normal / Holofoil / Reverse Holofoil prices); search labels now include the set
 - [x] Daily price history saved to data/history/YYYY-MM.json, starting 1 Oct 2026 (no free backfill exists)
@@ -29,6 +36,5 @@
 
 
 ## Ideas / not built yet
-- Chart range presets (7d / 30d / 90d) once there's enough history to need them
 - More sets for singles: add the set name to `CARD_SETS` in `scripts/update.py`
 - Sync collection across devices: right now it lives in each browser (use Export/Import)

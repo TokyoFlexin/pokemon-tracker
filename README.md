@@ -5,7 +5,8 @@ A free website for tracking what your Pokémon TCG collection is worth, in Austr
 **Live site:** https://tokyoflexin.github.io/pokemon-tracker/
 
 - **Binder:** add your singles and see each card's market value, plus how much it has moved since you added it.
-- **Price history:** a small trend line on every item. Tap it for a full chart with daily prices.
+- **Price history:** a small trend line on every item. Tap it for a full chart with 7 / 30 / 90 day and All ranges. The Sealed tab also charts the total value of everything you hold against what you paid.
+- **Targets:** a watchlist of products you want to buy, including upcoming pre-orders. Enter the retail price to see the profit if you get one at MSRP.
 - **Sealed:** add booster packs, boxes, bundles, ETBs, tins and collections, enter what you paid, and see your return in dollars and percent.
 - **Release calendar:** upcoming Pokémon TCG release dates for Australia.
 
@@ -29,9 +30,21 @@ Each suggestion shows the card number and rarity, because some names appear more
 
 The **Return** column then shows your profit or loss. The total row at the bottom adds up every item that has an MSRP entered.
 
+### Track targets (things you want to buy)
+1. Open the **Targets** tab and search for a product, e.g. `Delta Reign Elite Trainer Box`. Upcoming products work too: they show their pre-order price and a **Releases …** date.
+2. Enter the **MSRP** (the retail price you expect to pay).
+3. **Profit at MSRP** shows what you'd make if you bought one at retail and sold it at today's market price.
+4. Got one? Press **I bought one**. It moves to **Sealed**, keeping the MSRP as the price you paid.
+
+Targets don't count towards your collection value. Release dates on targets are TCGplayer's US dates, which usually match Australia; the **Release calendar** tab has the confirmed Australian dates.
+
 ### See price history
 Every card and sealed item has a **Price history** line under its price. Once there are two or more days of data it shows a small trend line and the % change. Tap it to open a full chart:
+- **7D / 30D / 90D / All** change the time range. Your choice is remembered and applies to every chart.
 - Hover over or drag across the chart to read the price on any day. On a keyboard, click the chart and use ← →.
+- Sealed and target charts show a dashed line at your MSRP, so you can see when the price crossed it.
+
+The **Sealed** tab also has a chart at the top showing the total value of all the sealed product you hold, day by day. If every line has an MSRP, a dashed **Paid** line shows your total cost.
 - **Show as a table** lists every daily price.
 
 History started recording on **1 October 2026**, so charts fill in one point per day from then on. Older prices aren't available: tcgcsv's free archive is offline, and the other sources are paid or private.
@@ -57,6 +70,8 @@ Export a backup now and then. Clearing your browser data or using a private wind
 | Card / product value | TCGplayer **market price** (USD) × the current USD→AUD exchange rate × quantity |
 | "since added" | Today's price compared with the price on the day you added the card |
 | Return (sealed) | `market value − (MSRP × qty)`, and that amount as a % of what you paid |
+| Profit at MSRP (targets) | `market price − MSRP`, and that amount as a % of the MSRP |
+| Sealed value chart | For each day, the price of every sealed item you hold now × its qty, added up |
 | Collection value | Every card and sealed item added together (items with no price count as $0) |
 | Price history | One TCGplayer market price per day, converted at that day's exchange rate |
 
@@ -170,7 +185,7 @@ The **backup file** (`pokemon-collection.json`) is a list of your items:
   { "kind": "sealed", "id": 704171, "variant": "Normal",   "qty": 1, "addedAud": 128.04, "msrp": 54.95 }
 ]
 ```
-`id` is the TCGplayer product ID, `addedAud` is the price per item on the day you added it, and `msrp` is what you paid per item in AUD.
+`kind` is `card`, `sealed` or `target`. `id` is the TCGplayer product ID, `addedAud` is the price per item on the day you added it, and `msrp` is what you paid per item in AUD.
 
 ---
 

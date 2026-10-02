@@ -38,6 +38,8 @@ def prices():
                 if is_card_set:
                     cards.append(item | {"number": ext["Number"], "rarity": ext.get("Rarity", "")})
             elif not p["name"].startswith("Code Card"):
+                if (p.get("presaleInfo") or {}).get("isPresale"):
+                    item["release"] = p["presaleInfo"]["releasedOn"][:10]  # US date; AU is usually the same
                 sealed.append(item)
     fx = json.loads(get("https://api.frankfurter.dev/v1/latest?from=USD&to=AUD"))["rates"]["AUD"]
     # tcgcsv's own refresh time, so the file only changes when prices or the rate actually change
