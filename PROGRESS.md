@@ -7,6 +7,7 @@
 - [x] Release parser: "Delta Reign" no longer reads "Delta Reign ME06"; set code moved to tags
 - [x] Sealed totals row (paid vs worth), signed returns, remove asks to confirm, tab kept in URL (#sealed)
 - [x] Verified every displayed number against data/prices.json
+- [x] README.md: how to use the site, how numbers are calculated, data sources, run your own copy, customising, troubleshooting
 
 ## 2026-10-02 — v1
 - [x] Cards tab: search + add any 30th Celebration single, qty, value in AUD, % change since added
