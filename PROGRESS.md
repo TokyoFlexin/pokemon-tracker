@@ -1,20 +1,27 @@
 # Progress
 
-## 2026-10-02 — v1 shipped
+## 2026-10-02 — v2: redesign + data fixes
+- [x] Rebuilt in the "Price Guide Binder" style (cream paper, serif, singles shown in a leather binder, sealed as a ledger)
+- [x] Collection starts empty; user adds everything themselves (new storage key, old seeded item ignored)
+- [x] Search labels show card number + rarity (fixes the two-Lugia mix-up), items with no price are marked
+- [x] Release parser: "Delta Reign" no longer reads "Delta Reign ME06"; set code moved to tags
+- [x] Sealed totals row (paid vs worth), signed returns, remove asks to confirm, tab kept in URL (#sealed)
+- [x] Verified every displayed number against data/prices.json
+
+## 2026-10-02 — v1
 - [x] Cards tab: search + add any 30th Celebration single (incl. variants like Holofoil / Reverse Holofoil), qty, value in AUD, % change since added
 - [x] Sealed tab: any SV/ME-era booster pack, box, bundle, ETB, tin, collection — market price vs your MSRP, profit in $ and %
 - [x] Upcoming tab: Australian release dates scraped from cardtracker.au/releases
 - [x] Header shows total collection value
 - [x] GitHub Action refreshes data every 3 hours; site always loads the newest snapshot
 - [x] Export / import collection backup
-- [x] Seeded first visit with the 30th Celebration Booster Bundle
 
-## Waiting on Sahel
-- [ ] List of the 30th Celebration cards you own (add them on the site, or send me the list)
-- [ ] MSRP you paid for the Booster Bundle (type it into the tile)
+## Decisions
+- US→AUD conversion is fine (no paid cardtracker.au API)
+- User adds their own cards and sealed product on the site
+
 
 ## Ideas / not built yet
 - More sets for singles: add the set name to `CARD_SETS` in `scripts/update.py`
-- Real Australian (eBay AU) prices instead of US→AUD conversion: cardtracker.au has an API, but it's paid (info@cardtracker.au)
 - Price history charts: would need the Action to append snapshots instead of overwriting
 - Sync collection across devices: right now it lives in each browser (use Export/Import)

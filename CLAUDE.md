@@ -2,7 +2,8 @@
 
 Static site (GitHub Pages) + a scheduled GitHub Action that refreshes JSON. No build step, no dependencies.
 
-- `index.html` — whole site: HTML, CSS, JS in one file. Collection lives in `localStorage.collection` (array of `{kind: "card"|"sealed", id, variant, qty, msrp?, addedAud}`).
+- `index.html` — whole site: HTML, CSS, JS in one file. Collection lives in `localStorage["pokemon-tracker"]` (array of `{kind: "card"|"sealed", id, variant, qty, msrp?, addedAud}`); starts empty.
+- Design: "Price Guide Binder" (user picked a mix of an editorial price-guide look + binder pages, 2026-10-02). Paper `#f6f1e7`, leather binder `#2b241c`, Newsreader + Libre Franklin. Don't drift back to a generic dark dashboard.
 - `scripts/update.py` — stdlib Python. Writes `data/prices.json` and `data/releases.json`.
 - `.github/workflows/update.yml` — runs the script every 3h, commits `data/` if it changed.
 - `PROGRESS.md` — what's done, what's pending, ideas.
@@ -16,4 +17,5 @@ Static site (GitHub Pages) + a scheduled GitHub Action that refreshes JSON. No b
 ## Run locally
 `python3 scripts/update.py` then `python3 -m http.server` and open http://localhost:8000 (fetch doesn't work from file://).
 
-The user is in Australia, so show AUD.
+The user is in Australia, so show AUD. US→AUD conversion is fine with them (no paid AU price API).
+Card search labels include number + rarity because names repeat (e.g. Lugia 121/128 Rare vs Lugia 149/147 Classic Collection).

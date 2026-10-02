@@ -59,10 +59,12 @@ def releases(page):
         img = re.search(r'<img src="([^"]+)"', art)
         link = re.search(r'<h3.*?href="([^"]+)"', art, re.S)
         spans = re.findall(r"(?s)Expected [^<]+</span>(.*?)</div>", art)
+        h3 = re.search(r"(?s)<h3.*?</h3>", art).group(0)
+        code = re.search(r"(?s)<span[^>]*>(.*?)</span>", h3)  # set code, e.g. "ME06"
         out.append({
-            "name": text(re.search(r"(?s)<h3.*?</h3>", art).group(0)),
+            "name": text(re.sub(r"(?s)<span.*?</span>", "", h3)),
             "date": date.group(1).strip() if date else "",
-            "tags": [text(t) for t in re.findall(r"<span>(.*?)</span>", spans[0])] if spans else [],
+            "tags": ([text(code.group(1))] if code else []) + ([text(t) for t in re.findall(r"<span>(.*?)</span>", spans[0])] if spans else []),
             "products": text(products.group(1)) if products else "",
             "note": text(note.group(1)) if note else "",
             "img": img.group(1) if img else "",
