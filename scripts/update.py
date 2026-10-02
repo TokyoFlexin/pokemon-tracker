@@ -94,7 +94,9 @@ if __name__ == "__main__":
     try:
         rel = releases(get("https://cardtracker.au/releases"))
         assert rel and all(r["name"] and r["date"] for r in rel), "release parse came back empty"
-        write("releases.json", {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "releases": rel})
+        old = OUT / "releases.json"
+        if not old.exists() or json.loads(old.read_text())["releases"] != rel:  # timestamp = when the calendar last changed
+            write("releases.json", {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "releases": rel})
     except Exception as e:  # keep last good releases.json if their HTML changes
         print("releases failed:", e)
     p = prices()
