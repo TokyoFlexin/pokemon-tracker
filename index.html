@@ -73,6 +73,25 @@ tfoot td { border-bottom: 0; border-top: 3px double var(--ink); font: 700 17px "
 .ev b { font: 700 17px/1.25 "Newsreader", serif; display: block; }
 .ev p { margin: 6px 0 0; font-size: 13px; }
 
+/* Price history */
+.spark { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; border-top: 1px solid var(--rule); margin-top: 6px; padding: 6px 0 0; font: inherit; font-size: 12px; color: var(--mute); cursor: pointer; text-align: left; min-height: 36px; }
+.spark svg { flex: 0 0 96px; height: 24px; overflow: visible; }
+.spark:hover { color: var(--ink); }
+td .spark { justify-content: flex-end; border: 0; }
+dialog { border: 1px solid var(--ink); border-radius: 6px; background: var(--paper); color: var(--ink); padding: 24px; width: min(720px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(27, 23, 18, .45); }
+.dlg-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; border-bottom: 3px double var(--ink); padding-bottom: 12px; }
+.dlg-head h3 { font: 700 26px/1.1 "Newsreader", serif; margin: 0; text-wrap: balance; }
+.dlg-hero { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; margin: 16px 0 8px; }
+.dlg-hero b { font: 700 34px "Newsreader", serif; }
+.chart { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; touch-action: none; }
+.chart svg:focus-visible { outline: 2px solid var(--ink); }
+.chart text { font: 11px "Libre Franklin"; fill: var(--mute); font-variant-numeric: tabular-nums; }
+.tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 4px; padding: 6px 10px; font-size: 12px; white-space: nowrap; transform: translateX(-50%); }
+.tip b { display: block; font: 700 16px "Newsreader", serif; }
+details { margin-top: 16px; font-size: 13px; }
+details table td { padding: 4px 6px; }
 .empty { font: italic 400 18px "Newsreader", serif; color: var(--mute); padding: 16px 0; }
 footer { margin-top: 56px; border-top: 1px solid var(--ink); padding-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 footer p { flex: 1 1 300px; margin: 0; }
@@ -100,7 +119,7 @@ footer p { flex: 1 1 300px; margin: 0; }
 
   <section id="binder">
     <h2>The Binder</h2>
-    <p class="dek">30th Celebration singles at TCGplayer market price, converted to AUD.</p>
+    <p class="dek">Singles from <span id="card-sets">…</span> at TCGplayer market price, converted to AUD. Tap “Price history” on any card to see its chart.</p>
     <form data-kind="card">
       <input list="card-list" id="card-search" placeholder="Search by name or number, e.g. Lugia 149…" autocomplete="off" aria-label="Search cards" required>
       <datalist id="card-list"></datalist>
@@ -126,6 +145,14 @@ footer p { flex: 1 1 300px; margin: 0; }
     <div class="cal" id="rel-list"></div>
   </section>
 
+  <dialog id="chart-dialog" aria-labelledby="dlg-title">
+    <div class="dlg-head"><div><h3 id="dlg-title"></h3><div class="sub" id="dlg-sub"></div></div><button class="btn line" id="dlg-close">Close</button></div>
+    <div class="dlg-hero"><b class="num" id="dlg-now"></b><span class="num" id="dlg-change"></span></div>
+    <div class="chart"><svg id="dlg-svg" viewBox="0 0 640 260" tabindex="0" role="img"></svg><div class="tip" id="dlg-tip" hidden></div></div>
+    <p class="sub" id="dlg-note"></p>
+    <details><summary>Show as a table</summary><table id="dlg-table"></table></details>
+  </dialog>
+
   <footer>
     <p class="sub">Your collection is saved in this browser only. Export a backup to move it to another device.</p>
     <button class="btn line" id="export">Export backup</button>
@@ -142,7 +169,7 @@ const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + aud(Math.abs(n));
 const pct = (now, then) => { if (!then) return null; const p = (now - then) / then * 100; return (p > 0 ? "+" : p < 0 ? "−" : "") + Math.abs(p).toFixed(1) + "%"; };
 const tone = n => n > 0 ? "gain" : n < 0 ? "loss" : "";
 
-let fx, products = {}, labels = {};
+let fx, products = {}, labels = {}, priceHistory = {}; // priceHistory: {"2026-10-01": {"id|variant": aud}}
 let mine = [];
 try { mine = JSON.parse(localStorage.getItem(KEY)) || []; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch {} render(); };
@@ -154,15 +181,91 @@ function eachAud(it) {
   return usd == null ? null : Math.round(usd * fx * 100) / 100;
 }
 const cardName = p => p.name.split(" - ")[0];
+const setName = p => p.set.replace(/^ME\d*: /, "");
+const day = d => new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 
-// Search options. Labels carry number + rarity so e.g. the two Lugias can't be confused.
+// Daily AUD prices for one item, oldest first.
+function series(it) {
+  const p = product(it), variant = it.variant || Object.keys(p?.prices || {})[0];
+  return Object.keys(priceHistory).sort().flatMap(d => {
+    const v = priceHistory[d][`${it.id}|${variant}`];
+    return v == null ? [] : [{ d, v }];
+  });
+}
+
+function sparkline(it, i) {
+  const pts = series(it);
+  let svg = "";
+  if (pts.length > 1) {
+    const vs = pts.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs);
+    const xy = pts.map((p, k) => `${(k / (pts.length - 1) * 96).toFixed(1)},${(22 - (hi === lo ? 0.5 : (p.v - lo) / (hi - lo)) * 20).toFixed(1)}`).join(" ");
+    svg = `<svg viewBox="0 0 96 24" aria-hidden="true"><polyline points="${xy}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  const change = pts.length > 1 ? pct(pts.at(-1).v, pts[0].v) : null;
+  return `<button class="spark" data-chart="${i}">${svg}<span>${change ? `${change} since ${day(pts[0].d).replace(/ \d{4}$/, "")}` : "Price history"}</span></button>`;
+}
+
+const nice = (span) => { const m = 10 ** Math.floor(Math.log10(span)), r = span / m; return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10) * m; };
+
+function openChart(it) {
+  const p = product(it), pts = series(it), dlg = $("#chart-dialog"), svg = $("#dlg-svg"), tip = $("#dlg-tip");
+  $("#dlg-title").textContent = it.kind === "card" ? cardName(p) : p.name;
+  $("#dlg-sub").textContent = it.kind === "card" ? `#${p.number} · ${p.rarity} · ${it.variant || ""} · ${setName(p)}` : p.set;
+  $("#dlg-now").textContent = aud(eachAud(it));
+  const first = pts[0], last = pts.at(-1);
+  $("#dlg-change").innerHTML = pts.length > 1 ? `<span class="${tone(last.v - first.v)}">${signed(last.v - first.v)} (${pct(last.v, first.v)})</span> <span class="sub">since ${day(first.d)}</span>` : "";
+  $("#dlg-note").textContent = pts.length > 1
+    ? "Daily TCGplayer market price, per item, in AUD at each day's exchange rate."
+    : pts.length ? `History started on ${day(first.d)}. A new point is added each day, so the line fills in over time.` : "No price history for this item yet.";
+  $("#dlg-table").innerHTML = "<tr><th>Date</th><th class='r'>Price (AUD)</th></tr>" + pts.slice().reverse().map(x => `<tr><td>${day(x.d)}</td><td class="r num">${aud(x.v)}</td></tr>`).join("");
+  svg.setAttribute("aria-label", `Price history for ${$("#dlg-title").textContent}`);
+
+  // Layout: 640×260 viewBox, y labels on the left.
+  const L = 64, R = 624, T = 16, B = 228;
+  const vs = pts.map(x => x.v), lo0 = Math.min(...vs), hi0 = Math.max(...vs);
+  const step = nice(((hi0 - lo0) || Math.max(hi0 * 0.2, 1)) / 3);
+  const lo = Math.max(0, Math.floor(lo0 / step) * step - (hi0 === lo0 ? step : 0)), hi = Math.ceil(hi0 / step) * step + (hi0 === lo0 ? step : 0);
+  const x = k => pts.length > 1 ? L + k / (pts.length - 1) * (R - L) : (L + R) / 2;
+  const y = v => B - (v - lo) / ((hi - lo) || 1) * (B - T);
+  let g = "";
+  for (let v = lo; v <= hi + step / 2; v += step)
+    g += `<line x1="${L}" x2="${R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${aud(v).replace(/\.00$/, "")}</text>`;
+  const ticks = pts.length > 2 ? [0, Math.floor((pts.length - 1) / 2), pts.length - 1] : pts.map((_, k) => k);
+  g += ticks.map(k => `<text x="${x(k)}" y="${B + 22}" text-anchor="${pts.length > 1 && k === 0 ? "start" : pts.length > 1 && k === pts.length - 1 ? "end" : "middle"}">${day(pts[k].d).replace(/ \d{4}$/, "")}</text>`).join("");
+  if (pts.length > 1) g += `<polyline points="${pts.map((p, k) => `${x(k)},${y(p.v)}`).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>`;
+  if (pts.length) g += `<circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>`;
+  g += `<line id="xh" y1="${T}" y2="${B}" stroke="var(--mute)" visibility="hidden"/><circle id="xd" r="4" fill="var(--ink)" stroke="var(--paper)" stroke-width="2" visibility="hidden"/>`;
+  svg.innerHTML = g;
+
+  // Crosshair: snaps to the nearest day; arrow keys do the same from the keyboard.
+  let at = pts.length - 1;
+  const show = k => {
+    if (!pts.length) return;
+    at = Math.max(0, Math.min(pts.length - 1, k));
+    const px = x(at), py = y(pts[at].v);
+    svg.querySelector("#xh").setAttribute("x1", px); svg.querySelector("#xh").setAttribute("x2", px);
+    svg.querySelector("#xd").setAttribute("cx", px); svg.querySelector("#xd").setAttribute("cy", py);
+    svg.querySelectorAll("#xh,#xd").forEach(el => el.setAttribute("visibility", "visible"));
+    tip.innerHTML = `<b class="num">${aud(pts[at].v)}</b>${day(pts[at].d)}`;
+    tip.style.left = `${px / 640 * 100}%`; tip.hidden = false;
+  };
+  const hide = () => { tip.hidden = true; svg.querySelectorAll("#xh,#xd").forEach(el => el.setAttribute("visibility", "hidden")); };
+  svg.onpointermove = e => { const r = svg.getBoundingClientRect(); show(Math.round(((e.clientX - r.left) / r.width * 640 - L) / ((R - L) || 1) * (pts.length - 1))); };
+  svg.onpointerleave = svg.onblur = hide;
+  svg.onfocus = () => show(at);
+  svg.onkeydown = e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); show(at + (e.key === "ArrowLeft" ? -1 : 1)); } };
+  hide();
+  dlg.showModal();
+}
+
+// Search options. Labels carry number, rarity and set so e.g. the two Lugias can't be confused.
 function buildOptions(list, kind) {
   return list.flatMap(p => {
     products[`${kind}|${p.id}`] = p;
     const variants = Object.keys(p.prices);
     return (variants.length ? variants : [""]).map(v => {
       const label = kind === "card"
-        ? `${cardName(p)} #${p.number} · ${p.rarity}${variants.length > 1 ? " · " + v : ""}${variants.length ? "" : " (no sales yet)"}`
+        ? `${cardName(p)} #${p.number} · ${p.rarity}${variants.length > 1 ? " · " + v : ""} · ${setName(p)}${variants.length ? "" : " (no sales yet)"}`
         : `${p.name} — ${p.set}${variants.length ? "" : " (no price yet)"}`;
       labels[label] = { kind, id: p.id, variant: v };
       return `<option value="${esc(label)}">`;
@@ -179,8 +282,9 @@ function pocket(it, i) {
     <div class="label">
       <div class="p num">${each == null ? "No sales yet" : aud(each * it.qty)}</div>
       <div class="n"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(cardName(p))}</a></div>
-      <div class="sub">#${esc(p.number)} · ${esc(p.rarity)}${it.qty > 1 ? ` · ${aud(each)} each` : ""}</div>
+      <div class="sub">#${esc(p.number)} · ${esc(p.rarity)}${Object.keys(p.prices).length > 1 ? ` · ${esc(it.variant)}` : ""} · ${esc(setName(p))}${it.qty > 1 ? ` · ${aud(each)} each` : ""}</div>
       ${change ? `<div class="sub num ${tone(each - it.addedAud)}">${change} since added</div>` : ""}
+      ${sparkline(it, i)}
       <div class="ctl"><label class="sub">Qty <input class="small-in num" type="number" min="1" value="${it.qty}" data-i="${i}" data-f="qty"></label>
       <button class="link" data-del="${i}">Remove</button></div>
     </div></div>`;
@@ -199,7 +303,7 @@ function sealedRow(it, i) {
         <label>MSRP each (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" data-i="${i}" data-f="msrp"></label>
         <button class="link" data-del="${i}">Remove</button>
       </div></td>
-    <td class="r"><div class="big num">${aud(value)}</div>${it.qty > 1 ? `<div class="sub num">${aud(each)} each</div>` : ""}</td>
+    <td class="r"><div class="big num">${aud(value)}</div>${it.qty > 1 ? `<div class="sub num">${aud(each)} each</div>` : ""}${sparkline(it, i)}</td>
     <td class="r num">${ret}</td></tr>`;
 }
 
@@ -239,8 +343,9 @@ document.addEventListener("change", e => {
   save();
 });
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-del],[data-tab],[data-focus]");
+  const t = e.target.closest("[data-del],[data-tab],[data-focus],[data-chart]");
   if (!t) return;
+  if (t.dataset.chart) openChart(mine[t.dataset.chart]);
   if (t.dataset.del && confirm(`Remove ${product(mine[t.dataset.del])?.name ?? "this item"}?`)) { mine.splice(+t.dataset.del, 1); save(); }
   if (t.dataset.focus) $("#" + t.dataset.focus).focus();
   if (t.dataset.tab) { history.replaceState(null, "", "#" + t.dataset.tab); showTab(t.dataset.tab); }
@@ -252,6 +357,8 @@ function showTab(tab) {
 }
 showTab(location.hash.slice(1));
 
+$("#dlg-close").onclick = () => $("#chart-dialog").close();
+$("#chart-dialog").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 $("#export").onclick = () => {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(mine, null, 1)], { type: "application/json" }));
@@ -270,6 +377,12 @@ $("#import").onchange = async e => {
   try {
     const [prices, rel] = await Promise.all(["data/prices.json", "data/releases.json"].map(u => fetch(u, { cache: "no-cache" }).then(r => r.json())));
     fx = prices.usdToAud;
+    // History is stored per month, starting when recording began (Oct 2026).
+    const months = [];
+    for (let d = new Date(Date.UTC(2026, 9, 1)); d <= new Date(prices.updated); d.setUTCMonth(d.getUTCMonth() + 1)) months.push(d.toISOString().slice(0, 7));
+    (await Promise.all(months.map(m => fetch(`data/history/${m}.json`, { cache: "no-cache" }).then(r => r.ok ? r.json() : {}).catch(() => ({})))))
+      .forEach(m => Object.assign(priceHistory, m));
+    $("#card-sets").textContent = [...new Set(prices.cards.map(setName))].join(", ");
     const byNumber = (a, b) => a.set.localeCompare(b.set) || (parseInt(a.number) || 999) - (parseInt(b.number) || 999);
     $("#card-list").innerHTML = buildOptions(prices.cards.sort(byNumber), "card");
     $("#sealed-list").innerHTML = buildOptions(prices.sealed, "sealed");

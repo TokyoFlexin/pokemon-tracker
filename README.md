@@ -5,6 +5,7 @@ A free website for tracking what your Pokémon TCG collection is worth, in Austr
 **Live site:** https://tokyoflexin.github.io/pokemon-tracker/
 
 - **Binder:** add your singles and see each card's market value, plus how much it has moved since you added it.
+- **Price history:** a small trend line on every item. Tap it for a full chart with daily prices.
 - **Sealed:** add booster packs, boxes, bundles, ETBs, tins and collections, enter what you paid, and see your return in dollars and percent.
 - **Release calendar:** upcoming Pokémon TCG release dates for Australia.
 
@@ -28,6 +29,13 @@ Each suggestion shows the card number and rarity, because some names appear more
 
 The **Return** column then shows your profit or loss. The total row at the bottom adds up every item that has an MSRP entered.
 
+### See price history
+Every card and sealed item has a **Price history** line under its price. Once there are two or more days of data it shows a small trend line and the % change. Tap it to open a full chart:
+- Hover over or drag across the chart to read the price on any day. On a keyboard, click the chart and use ← →.
+- **Show as a table** lists every daily price.
+
+History started recording on **1 October 2026**, so charts fill in one point per day from then on. Older prices aren't available: tcgcsv's free archive is offline, and the other sources are paid or private.
+
 ### Change or remove items
 - Change **Qty** on any card or product to set how many you own.
 - **Remove** deletes an item. It asks you to confirm first.
@@ -50,6 +58,7 @@ Export a backup now and then. Clearing your browser data or using a private wind
 | "since added" | Today's price compared with the price on the day you added the card |
 | Return (sealed) | `market value − (MSRP × qty)`, and that amount as a % of what you paid |
 | Collection value | Every card and sealed item added together (items with no price count as $0) |
+| Price history | One TCGplayer market price per day, converted at that day's exchange rate |
 
 The exchange rate and the time of the last update are shown under the collection value at the top of the page.
 
@@ -60,7 +69,7 @@ The exchange rate and the time of the last update are shown under the collection
 - This is a tracking tool, not financial advice.
 
 ### What's covered
-- **Singles:** the **30th Celebration** set, including the Classic Collection.
+- **Singles:** **30th Celebration** (including the Classic Collection) and **Pitch Black**.
 - **Sealed:** every Scarlet & Violet and Mega Evolution era product on TCGplayer, from 2023 onwards.
 - **Release calendar:** upcoming Australian release dates from [cardtracker.au](https://cardtracker.au/releases).
 
@@ -75,7 +84,7 @@ The exchange rate and the time of the last update are shown under the collection
 | Release dates | [cardtracker.au/releases](https://cardtracker.au/releases) | Read from their public page |
 | Card and product images | TCGplayer and cardtracker.au | Loaded straight from their servers |
 
-Browsers can't load these sources directly, so a scheduled GitHub Action ([`update.yml`](.github/workflows/update.yml)) runs [`scripts/update.py`](scripts/update.py) every 3 hours. It saves the results to [`data/`](data/), and the website reads those files every time you open it.
+Browsers can't load these sources directly, so a scheduled GitHub Action ([`update.yml`](.github/workflows/update.yml)) runs [`scripts/update.py`](scripts/update.py) every 3 hours. It saves the results to [`data/`](data/), and the website reads those files every time you open it. Each run also saves that day's prices into `data/history/`, which is what the charts are drawn from. Files are only committed when TCGplayer's data or the exchange rate actually changes, which is about once a day.
 
 ---
 
@@ -112,7 +121,7 @@ All the settings are at the top of [`scripts/update.py`](scripts/update.py).
 
 | To… | Change |
 |---|---|
-| Track singles from more sets | Add part of the TCGplayer set name to `CARD_SETS`, e.g. `("30th Celebration", "Prismatic Evolutions")` |
+| Track singles from more sets | Add part of the TCGplayer set name to `CARD_SETS`, e.g. `("30th Celebration", "Pitch Black", "Prismatic Evolutions")` |
 | Track sealed product from other eras | Add to `SEALED_PREFIXES`. It matches the start of TCGplayer set names, e.g. `"SWSH"` for Sword & Shield |
 | Change how often prices refresh | Edit the `cron` line in [`.github/workflows/update.yml`](.github/workflows/update.yml) |
 | Use another currency | Change `to=AUD` in `update.py`, then the `"AUD"` / `"A$"` formatting in the `aud()` function in `index.html` |
@@ -128,6 +137,7 @@ index.html                     The whole website (HTML, CSS and JavaScript in on
 scripts/update.py              Fetches prices, exchange rate and release dates (Python standard library only)
 data/prices.json               Latest prices, written by the script
 data/releases.json             Latest release calendar, written by the script
+data/history/YYYY-MM.json      Daily prices for one month, used by the charts
 .github/workflows/update.yml   Runs the script every 3 hours and commits any changes
 PROGRESS.md                    What's been built and ideas for later
 ```
@@ -148,6 +158,11 @@ PROGRESS.md                    What's been built and ideas for later
 ```
 `prices` holds USD market prices for each print variant (Normal, Holofoil, Reverse Holofoil…). It's empty when there's no market price yet.
 
+`data/history/2026-10.json` holds one entry per day, mapping `"productId|variant"` to that day's AUD price:
+```json
+{ "2026-10-01": { "714386|Holofoil": 392.66, "704171|Normal": 128.04 } }
+```
+
 The **backup file** (`pokemon-collection.json`) is a list of your items:
 ```json
 [
@@ -164,6 +179,7 @@ The **backup file** (`pokemon-collection.json`) is a list of your items:
 | Problem | Fix |
 |---|---|
 | My collection disappeared | It's stored in the browser. If you cleared site data, used a private window or switched browsers, use **Import backup** with your last export. |
+| A chart only shows one dot | History started on 1 October 2026 and adds one point per day. Come back tomorrow. |
 | A card I own isn't in the search | Singles only cover the sets listed in `CARD_SETS`. Brand-new cards can also take a day or two to appear on TCGplayer. |
 | "Updated" time is more than a day old | Open the repo's **Actions** tab. If the workflow failed, open the run to see the error. If it shows as disabled, enable it again: GitHub turns off scheduled workflows in public repos after 60 days with no activity. |
 | Release calendar looks out of date | It only changes when cardtracker.au updates their page. If their page layout changes and the reader fails, the last good calendar is kept and the workflow log shows `releases failed`. |

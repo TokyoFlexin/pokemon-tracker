@@ -4,13 +4,16 @@ Static site (GitHub Pages) + a scheduled GitHub Action that refreshes JSON. No b
 
 - `index.html` — whole site: HTML, CSS, JS in one file. Collection lives in `localStorage["pokemon-tracker"]` (array of `{kind: "card"|"sealed", id, variant, qty, msrp?, addedAud}`); starts empty.
 - Design: "Price Guide Binder" (user picked a mix of an editorial price-guide look + binder pages, 2026-10-02). Paper `#f6f1e7`, leather binder `#2b241c`, Newsreader + Libre Franklin. Don't drift back to a generic dark dashboard.
-- `scripts/update.py` — stdlib Python. Writes `data/prices.json` and `data/releases.json`.
+- `scripts/update.py` — stdlib Python. Writes `data/prices.json`, `data/releases.json` and `data/history/YYYY-MM.json` (`{date: {"id|variant": aud}}`, keyed by tcgcsv's last-updated date).
+- `prices.json` `updated` = tcgcsv's `last-updated.txt`, so files only change (and only get committed) when upstream data changes (~daily).
+- Price history can't be backfilled: the tcgcsv archive is offline (403, "temporarily removed"), cardtracker API is paid, and TCGplayer's internal API is off-limits. Recording began 2026-10-01.
+- In `index.html` the history object is `priceHistory`. Don't name it `history`: that would shadow `window.history`, which the tabs use.
 - `.github/workflows/update.yml` — runs the script every 3h, commits `data/` if it changed.
 - `PROGRESS.md` — what's done, what's pending, ideas.
 
 ## Data sources (and why)
 - **Prices:** tcgcsv.com (free daily mirror of TCGplayer, category 3 = Pokémon). No CORS, hence the Action. Market price is USD; converted to AUD with frankfurter.dev at fetch time.
-  - Singles: only groups whose name contains `CARD_SETS` (currently "30th Celebration" → main set + Classic Collection).
+  - Singles: only groups whose name contains `CARD_SETS` (currently "30th Celebration" → main set + Classic Collection, and "Pitch Black").
   - Sealed: every group whose name starts with "SV" or "ME". Sealed = product with no `Number` field, excluding "Code Card".
 - **Upcoming releases:** scraped from https://cardtracker.au/releases (robots.txt allows it; their `/api` is paid and disallowed). Parser reads the `<article>`s between "Upcoming releases" and "On the watch list". If the parse fails, the last good `releases.json` is kept.
 

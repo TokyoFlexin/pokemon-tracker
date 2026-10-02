@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 TCGCSV = "https://tcgcsv.com/tcgplayer/3"  # 3 = Pokemon
-CARD_SETS = ("30th Celebration",)  # groups whose singles we track; add more set names here
+CARD_SETS = ("30th Celebration", "Pitch Black")  # groups whose singles we track; add more set names here
 SEALED_PREFIXES = ("SV", "ME")  # Scarlet & Violet + Mega Evolution era sealed product
 OUT = Path(__file__).resolve().parent.parent / "data"
 
@@ -40,8 +40,20 @@ def prices():
             elif not p["name"].startswith("Code Card"):
                 sealed.append(item)
     fx = json.loads(get("https://api.frankfurter.dev/v1/latest?from=USD&to=AUD"))["rates"]["AUD"]
-    return {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "usdToAud": fx, "cards": cards, "sealed": sealed}
+    # tcgcsv's own refresh time, so the file only changes when prices or the rate actually change
+    updated = datetime.strptime(get("https://tcgcsv.com/last-updated.txt").strip(), "%Y-%m-%dT%H:%M:%S%z")
+    return {"updated": updated.isoformat(), "usdToAud": fx, "cards": cards, "sealed": sealed}
+
+
+def record_history(p):
+    """Add today's AUD prices to data/history/YYYY-MM.json as {date: {"id|variant": aud}}."""
+    day = p["updated"][:10]
+    path = OUT / "history" / f"{day[:7]}.json"
+    path.parent.mkdir(exist_ok=True)
+    month = json.loads(path.read_text()) if path.exists() else {}
+    month[day] = {f"{i['id']}|{v}": round(usd * p["usdToAud"], 2)
+                  for i in p["cards"] + p["sealed"] for v, usd in i["prices"].items()}
+    path.write_text(json.dumps(month, separators=(",", ":"), sort_keys=True))
 
 
 def text(s):
@@ -88,4 +100,5 @@ if __name__ == "__main__":
     p = prices()
     assert p["cards"] and p["sealed"], "price fetch came back empty"
     write("prices.json", p)
+    record_history(p)
     print(f"{len(p['cards'])} cards, {len(p['sealed'])} sealed, fx {p['usdToAud']}")

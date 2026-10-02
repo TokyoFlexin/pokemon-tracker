@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-02 — v3: price history + Pitch Black
+- [x] Pitch Black singles added (all 120 cards, with Normal / Holofoil / Reverse Holofoil prices); search labels now include the set
+- [x] Daily price history saved to data/history/YYYY-MM.json, starting 1 Oct 2026 (no free backfill exists)
+- [x] Sparkline + % change on every card and sealed item; tap for a full chart (crosshair tooltip, arrow keys, table view)
+- [x] Data only committed when tcgcsv or the FX rate changes (was every 3h because of the timestamp)
+
 ## 2026-10-02 — v2: redesign + data fixes
 - [x] Rebuilt in the "Price Guide Binder" style (cream paper, serif, singles shown in a leather binder, sealed as a ledger)
 - [x] Collection starts empty; user adds everything themselves (new storage key, old seeded item ignored)
@@ -23,6 +29,6 @@
 
 
 ## Ideas / not built yet
+- Chart range presets (7d / 30d / 90d) once there's enough history to need them
 - More sets for singles: add the set name to `CARD_SETS` in `scripts/update.py`
-- Price history charts: would need the Action to append snapshots instead of overwriting
 - Sync collection across devices: right now it lives in each browser (use Export/Import)
