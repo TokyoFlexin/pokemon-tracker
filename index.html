@@ -95,6 +95,17 @@ dialog::backdrop { background: rgba(27, 23, 18, .45); }
 .ranges button:first-child { border-left: 0; }
 .ranges button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .panel { border-bottom: 1px solid var(--rule); padding-bottom: 16px; margin-bottom: 24px; }
+/* Sealed: list on the left, total-value chart on the right (sticks while the list scrolls) */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.split > .panel { position: sticky; top: 16px; margin: 0; padding: 0 0 0 32px; border: 0; border-left: 1px solid var(--rule); }
+.split:has(> .panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
+.split td img { width: 56px; }
+.split .chart text { font-size: 15px; } /* the half-width chart is scaled down, so bump label size in SVG units */
+.rrp { font-size: 11px; color: var(--mute); }
+@media (max-width: 860px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .split > .panel { position: static; order: -1; padding: 0 0 16px; border-left: 0; border-bottom: 1px solid var(--rule); }
+}
 .panel .dlg-hero { margin-top: 0; }
 .badge { display: inline-block; font: 600 11px "Libre Franklin"; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--ink); border-radius: 3px; padding: 2px 6px; margin-top: 4px; }
 details { margin-top: 16px; font-size: 13px; }
@@ -138,24 +149,27 @@ footer p { flex: 1 1 300px; margin: 0; }
 
   <section id="p-sealed" hidden>
     <h2>Sealed</h2>
-    <p class="dek">Market price against what you paid. Enter your MSRP on each line.</p>
-    <div class="panel" id="sealed-chart" hidden>
-      <div class="dlg-hero"><b class="num" id="sc-now"></b><span class="num" id="sc-change"></span></div>
-      <div id="sc-ranges"></div>
-      <div class="chart" id="sc-box"><svg viewBox="0 0 640 260" tabindex="0" role="img" aria-label="Total sealed value over time"></svg><div class="tip" hidden></div></div>
-      <p class="sub" id="sc-note"></p>
-    </div>
+    <p class="dek">Market price against what you paid. ETBs and Booster Bundles start at the Australian RRP; change it to what you actually paid.</p>
     <form data-kind="sealed">
       <input list="sealed-list" placeholder="Search packs, boxes, bundles, ETBs, tins…" autocomplete="off" aria-label="Search sealed products" required>
       <datalist id="sealed-list"></datalist>
       <button class="btn">Add sealed</button>
     </form>
-    <div id="sealed-table"></div>
+    <div class="split">
+      <div id="sealed-table"></div>
+      <div class="panel" id="sealed-chart" hidden>
+        <div class="sub">Total value of your sealed</div>
+        <div class="dlg-hero"><b class="num" id="sc-now"></b><span class="num" id="sc-change"></span></div>
+        <div id="sc-ranges"></div>
+        <div class="chart" id="sc-box"><svg viewBox="0 0 640 260" tabindex="0" role="img" aria-label="Total sealed value over time"></svg><div class="tip" hidden></div></div>
+        <p class="sub" id="sc-note"></p>
+      </div>
+    </div>
   </section>
 
   <section id="p-targets" hidden>
     <h2>Targets</h2>
-    <p class="dek">Products you want to buy. Enter the retail price (MSRP) to see what you'd make if you got one at retail. Targets don't count towards your collection value.</p>
+    <p class="dek">Products you want to buy. Enter the retail price (MSRP) to see what you'd make if you got one at retail. ETBs and Booster Bundles fill in the Australian RRP for you. Targets don't count towards your collection value.</p>
     <form data-kind="target">
       <input list="sealed-list" placeholder="Search upcoming or current products, e.g. Delta Reign Elite Trainer Box…" autocomplete="off" aria-label="Search products to target" required>
       <button class="btn">Add target</button>
@@ -206,6 +220,16 @@ function eachAud(it) {
   return usd == null ? null : Math.round(usd * fx * 100) / 100;
 }
 const cardName = p => p.name.split(" - ")[0];
+// Australian RRP for Mega Evolution-era ETBs and Booster Bundles (cardtracker.au, Oct 2026):
+// 30th Celebration ETB $100 at Big W/JB Hi-Fi, Bundle $54; other sets ETB $109 / Bundle $59.99 at Toymate.
+// Pokemon Center exclusives and cases have no AU RRP. Update these when prices change.
+function auRrp(p) {
+  if (!p || !p.set.startsWith("ME") || /Pokemon Center|Case|Display/.test(p.name)) return null;
+  const c30 = p.set.includes("30th Celebration");
+  if (/Elite Trainer Box( \[[^\]]+\])?$/.test(p.name)) return c30 ? 100 : 109;
+  if (/Booster Bundle$/.test(p.name)) return c30 ? 54 : 59.99;
+  return null;
+}
 const setName = p => p.set.replace(/^ME\d*: /, "");
 const day = d => new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 
@@ -365,7 +389,7 @@ function sealedRow(it, i) {
     <td><div class="nm"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a></div><div class="sub">${esc(p.set)}</div>
       <div class="fields">
         <label>Qty <input class="small-in num" type="number" min="1" value="${it.qty}" data-i="${i}" data-f="qty"></label>
-        <label>MSRP each (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" data-i="${i}" data-f="msrp"></label>
+        <label>MSRP each (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" placeholder="${auRrp(p) ?? ""}" data-i="${i}" data-f="msrp"></label>${it.msrp && it.msrp === auRrp(p) ? `<span class="rrp">AU RRP</span>` : ""}
         <button class="link" data-del="${i}">Remove</button>
       </div></td>
     <td class="r"><div class="big num">${aud(value)}</div>${it.qty > 1 ? `<div class="sub num">${aud(each)} each</div>` : ""}${sparkline(it, i)}</td>
@@ -381,7 +405,7 @@ function targetRow(it, i) {
     <td><div class="nm"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a></div><div class="sub">${esc(p.set)}</div>
       ${upcoming ? `<span class="badge">Releases ${day(p.release)} (US)</span>` : ""}
       <div class="fields">
-        <label>MSRP (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" data-i="${i}" data-f="msrp"></label>
+        <label>MSRP (A$) <input class="small-in num" type="number" min="0" step="0.01" value="${it.msrp ?? ""}" placeholder="${auRrp(p) ?? ""}" data-i="${i}" data-f="msrp"></label>${it.msrp && it.msrp === auRrp(p) ? `<span class="rrp">AU RRP</span>` : ""}
         <button class="link" data-buy="${i}">I bought one</button>
         <button class="link" data-del="${i}">Remove</button>
       </div></td>
@@ -418,7 +442,7 @@ document.querySelectorAll("form").forEach(f => f.addEventListener("submit", e =>
   if (!pick) { input.setCustomValidity("Choose an item from the suggestions list"); input.reportValidity(); return; }
   const existing = mine.find(it => it.kind === pick.kind && it.id === pick.id && it.variant === pick.variant);
   if (existing) existing.qty++;
-  else mine.push({ ...pick, qty: 1, addedAud: eachAud(pick) });
+  else mine.push({ ...pick, qty: 1, addedAud: eachAud(pick), ...(pick.kind !== "card" && auRrp(product(pick)) ? { msrp: auRrp(product(pick)) } : {}) });
   input.value = ""; save();
 }));
 document.querySelectorAll("form input").forEach(i => i.addEventListener("input", () => i.setCustomValidity("")));
@@ -485,6 +509,7 @@ $("#import").onchange = async e => {
     const byNumber = (a, b) => a.set.localeCompare(b.set) || (parseInt(a.number) || 999) - (parseInt(b.number) || 999);
     $("#card-list").innerHTML = buildOptions(prices.cards.sort(byNumber), "card");
     $("#sealed-list").innerHTML = buildOptions(prices.sealed, "sealed");
+    mine.forEach(it => { if (it.kind !== "card" && it.msrp == null && auRrp(product(it))) it.msrp = auRrp(product(it)); });
     $("#updated").textContent = `Updated ${new Date(prices.updated).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })} · US$1 = A$${fx}`;
     $("#rel-updated").textContent = new Date(rel.updated).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" });
     $("#rel-list").innerHTML = rel.releases.map(r => `<article class="ev">
@@ -494,7 +519,7 @@ $("#import").onchange = async e => {
       <span class="sub">${esc(r.tags.join(" · "))}</span>
       ${r.products ? `<p>${esc(r.products)}</p>` : ""}${r.note ? `<p class="sub">${esc(r.note)}</p>` : ""}
     </article>`).join("");
-    render();
+    save(); // also persists any RRP filled in above
   } catch {
     $("#updated").textContent = "Couldn't load prices. Refresh to try again.";
   }

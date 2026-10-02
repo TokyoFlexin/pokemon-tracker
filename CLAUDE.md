@@ -4,6 +4,8 @@ Static site (GitHub Pages) + a scheduled GitHub Action that refreshes JSON. No b
 
 - `index.html` — whole site: HTML, CSS, JS in one file. Collection lives in `localStorage["pokemon-tracker"]` (array of `{kind: "card"|"sealed"|"target", id, variant, qty, msrp?, addedAud}`); starts empty. Targets are sealed products on a watchlist: not in the total, and "I bought one" converts them to sealed. Chart range lives in `localStorage["pokemon-tracker-range"]`.
 - Section ids are `p-<tab>` on purpose: if they matched the URL hash, the browser would jump past the header.
+- AU RRP defaults live in `auRrp(p)` in index.html (ME-era ETB/Booster Bundle only; sourced from cardtracker.au, Oct 2026). They fill `msrp` when an item is added and backfill items with no msrp on load. Retailer sites (JB/Big W) block scripted requests, so there's no live RRP source.
+- Sealed tab is a two-column `.split`: table left, sticky total-value chart right; stacks with the chart first under 860px.
 - `drawChart(box, pts, ref)` is the one chart renderer (item dialog + Sealed total). Sealed items in `prices.json` carry `release` (US date) when TCGplayer marks them as presale.
 - Design: "Price Guide Binder" (user picked a mix of an editorial price-guide look + binder pages, 2026-10-02). Paper `#f6f1e7`, leather binder `#2b241c`, Newsreader + Libre Franklin. Don't drift back to a generic dark dashboard.
 - `scripts/update.py` — stdlib Python. Writes `data/prices.json`, `data/releases.json` and `data/history/YYYY-MM.json` (`{date: {"id|variant": aud}}`, keyed by tcgcsv's last-updated date).

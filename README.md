@@ -26,13 +26,15 @@ Each suggestion shows the card number and rarity, because some names appear more
 ### Add sealed product
 1. Open the **Sealed** tab.
 2. Search for the product, e.g. `30th Celebration Booster Bundle`, and press **Add sealed**.
-3. Type what you paid per item into **MSRP each (A$)**.
+3. Check **MSRP each (A$)**. For Mega Evolution-era ETBs and Booster Bundles it's filled in with the Australian RRP (marked **AU RRP**). Change it to what you actually paid. For everything else, type in what you paid.
 
-The **Return** column then shows your profit or loss. The total row at the bottom adds up every item that has an MSRP entered.
+The list sits on the left and a chart of your total sealed value on the right. The chart stays on screen while you scroll the list. On a phone the chart sits above the list.
+
+The **Return** column shows your profit or loss. The total row at the bottom adds up every item that has an MSRP entered.
 
 ### Track targets (things you want to buy)
 1. Open the **Targets** tab and search for a product, e.g. `Delta Reign Elite Trainer Box`. Upcoming products work too: they show their pre-order price and a **Releases …** date.
-2. Enter the **MSRP** (the retail price you expect to pay).
+2. Check the **MSRP** (the retail price you expect to pay). ETBs and Booster Bundles fill in the Australian RRP for you.
 3. **Profit at MSRP** shows what you'd make if you bought one at retail and sold it at today's market price.
 4. Got one? Press **I bought one**. It moves to **Sealed**, keeping the MSRP as the price you paid.
 
@@ -82,6 +84,17 @@ The exchange rate and the time of the last update are shown under the collection
 - **Prices update about once a day.** The site checks for new data every 3 hours, but TCGplayer's market prices only change roughly daily.
 - **"No sales yet" / "No price yet"** means TCGplayer doesn't have a market price for that item yet. This is common for very new or very rare items.
 - This is a tracking tool, not financial advice.
+
+### Australian RRPs used
+
+| Product | AU RRP | Source |
+|---|---|---|
+| 30th Celebration Elite Trainer Box | A$100 | Big W and JB Hi-Fi price, via [cardtracker.au](https://cardtracker.au/insights/guides/pokemon-30th-celebration-prices-australia) |
+| 30th Celebration Booster Bundle | A$54 | Expected RRP, via [cardtracker.au](https://cardtracker.au/insights/guides/pokemon-30th-celebration-prices-australia) |
+| Other Mega Evolution ETBs (Pitch Black, Delta Reign, Chaos Rising…) | A$109 | Toymate price, via [cardtracker.au](https://cardtracker.au/insights/guides/pokemon-booster-bundle-guide) |
+| Other Mega Evolution Booster Bundles | A$59.99 | Toymate price, via [cardtracker.au](https://cardtracker.au/insights/guides/pokemon-booster-bundle-guide) |
+
+Pokémon Center exclusives, cases and older Scarlet & Violet products have no default; type in what you paid. Prices vary by store (EB Games has charged A$120 for ETBs), so the RRP is only a starting point. The values live in the `auRrp()` function in `index.html`.
 
 ### What's covered
 - **Singles:** **30th Celebration** (including the Classic Collection) and **Pitch Black**.

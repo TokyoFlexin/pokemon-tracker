@@ -1,5 +1,9 @@
 # Progress
 
+## 2026-10-02 — v5: AU RRP + split Sealed layout
+- [x] Australian RRP pre-filled for Mega Evolution ETBs (A$109; 30th Celebration A$100) and Booster Bundles (A$59.99; 30th A$54), marked "AU RRP" and editable
+- [x] Sealed tab split in two: list on the left, total-value chart on the right (sticky while scrolling); stacks on phones
+
 ## 2026-10-02 — v4: targets + chart ranges
 - [x] 7D / 30D / 90D / All range buttons on every chart (remembered, shared across charts)
 - [x] Targets tab: watchlist of products to buy (incl. presale, e.g. Delta Reign), MSRP → profit at MSRP, release badge, chart, "I bought one" moves it to Sealed
