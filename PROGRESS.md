@@ -9,7 +9,7 @@
 - [x] Verified every displayed number against data/prices.json
 
 ## 2026-10-02 — v1
-- [x] Cards tab: search + add any 30th Celebration single (incl. variants like Holofoil / Reverse Holofoil), qty, value in AUD, % change since added
+- [x] Cards tab: search + add any 30th Celebration single, qty, value in AUD, % change since added
 - [x] Sealed tab: any SV/ME-era booster pack, box, bundle, ETB, tin, collection — market price vs your MSRP, profit in $ and %
 - [x] Upcoming tab: Australian release dates scraped from cardtracker.au/releases
 - [x] Header shows total collection value
